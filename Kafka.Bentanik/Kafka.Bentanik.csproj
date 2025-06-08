@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
 	<Authors>Bentanik aka VietVy</Authors>
 	<Description>Kafka wrapper created by Bentanik aka VietVy</Description>
+    <PackageId>Kafka.Bentanik</PackageId>
+  <PackageTags>kafka dotnet microservices outbox</PackageTags>
+  <RepositoryUrl>https://github.com/your-name/Kafka.Bentanik</RepositoryUrl>
+  <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

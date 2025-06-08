@@ -113,15 +113,18 @@ Supports custom databases via `IOutboxStore` interface.
 ```csharp
 public class OutboxMessage
 {
-    public Guid Id { get; set; }
-    public string Topic { get; set; }
-    public string EventType { get; set; }
-    public string Payload { get; set; }
-    public int RetryCount { get; set; }
-    public bool IsPublished { get; set; }
-    public bool IsDeadLettered { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string EventType { get; set; } = default!;
+    public string Payload { get; set; } = default!;
+    public string Topic { get; set; } = default!;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? PublishedAt { get; set; }
+
+    public bool Processed { get; set; } = false;
+    public int RetryCount { get; set; } = 0;
+    public string? Status { get; set; } = "Pending"; // Pending, Failed, Success, DeadLettered
+    public DateTime? ProcessedAt { get; set; }
+
+    public bool IsDeadLettered => Status == "DeadLettered";
 }
 ```
 
@@ -160,15 +163,16 @@ public class MongoOutboxStore : IOutboxStore
     }
 
     public Task<List<OutboxMessage>> GetUnsentMessagesAsync(int maxCount, CancellationToken ct)
-        => _collection.Find(m => !m.IsPublished && !m.IsDeadLettered)
+        => _collection.Find(m => !m.Processed && m.Status != "DeadLettered")
                       .Limit(maxCount)
                       .ToListAsync(ct);
 
     public Task MarkAsSentAsync(Guid id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
             Builders<OutboxMessage>.Update
-                .Set(x => x.IsPublished, true)
-                .Set(x => x.PublishedAt, DateTime.UtcNow),
+                .Set(x => x.Processed, true)
+                .Set(x => x.Status, "Success")
+                .Set(x => x.ProcessedAt, DateTime.UtcNow),
             cancellationToken: ct);
 
     public Task IncrementRetryAsync(Guid id, CancellationToken ct)
@@ -178,7 +182,10 @@ public class MongoOutboxStore : IOutboxStore
 
     public Task MoveToDeadLetterAsync(Guid id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
-            Builders<OutboxMessage>.Update.Set(x => x.IsDeadLettered, true),
+            Builders<OutboxMessage>.Update
+                .Set(x => x.Processed, true)
+                .Set(x => x.Status, "DeadLettered")
+                .Set(x => x.ProcessedAt, DateTime.UtcNow),
             cancellationToken: ct);
 }
 ```
