@@ -1,6 +1,6 @@
 ﻿namespace Kafka.Bentanik.Models;
 
-public class OutboxMessage
+public class OutboxBentanikMessage
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string EventType { get; set; } = default!;

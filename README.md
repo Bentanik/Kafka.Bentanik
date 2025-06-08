@@ -111,7 +111,7 @@ Supports custom databases via `IOutboxStore` interface.
 ### OutboxMessage Model
 
 ```csharp
-public class OutboxMessage
+public class OutboxBentanikMessage
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string EventType { get; set; } = default!;

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+	  <Version>1.0.2</Version>
     <Nullable>enable</Nullable>
 	<Authors>Bentanik aka VietVy</Authors>
 	<Description>Kafka wrapper created by Bentanik aka VietVy</Description>

@@ -4,11 +4,16 @@ public class KafkaBentanikSubscriber<T> : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly KafkaBentanikSubscriberOptions<T> _options;
+    private readonly ILogger<KafkaBentanikSubscriber<T>> _logger;
 
-    public KafkaBentanikSubscriber(IServiceProvider serviceProvider, IOptions<KafkaBentanikSubscriberOptions<T>> options)
+    public KafkaBentanikSubscriber(
+        IServiceProvider serviceProvider,
+        IOptions<KafkaBentanikSubscriberOptions<T>> options,
+        ILogger<KafkaBentanikSubscriber<T>> logger)
     {
         _serviceProvider = serviceProvider;
         _options = options.Value;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -17,7 +22,8 @@ public class KafkaBentanikSubscriber<T> : BackgroundService
         {
             BootstrapServers = _options.BootstrapServers ?? "localhost:9092",
             GroupId = _options.GroupId ?? "default-group",
-            AutoOffsetReset = AutoOffsetReset.Earliest
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = false
         };
 
         _options.ConfigureConsumer?.Invoke(config);
@@ -25,38 +31,61 @@ public class KafkaBentanikSubscriber<T> : BackgroundService
         using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
         consumer.Subscribe(_options.Topic);
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                var result = consumer.Consume(stoppingToken);
-                var message = JsonSerializer.Deserialize<T>(result.Message.Value);
+                var result = consumer.Consume(TimeSpan.FromMilliseconds(100));
 
-                if (message != null)
+                if (result?.Message?.Value == null)
                 {
-                    var attempt = 0;
-                    bool success = false;
+                    await Task.Delay(200, stoppingToken);
+                    continue;
+                }
 
-                    while (attempt < _options.MaxRetryAttempts && !success)
+                T? message;
+                try
+                {
+                    message = JsonSerializer.Deserialize<T>(result.Message.Value);
+                    if (message == null)
                     {
-                        try
-                        {
-                            using var scope = _serviceProvider.CreateScope();
-                            var handler = scope.ServiceProvider.GetRequiredService<IKafkaBentanikSubscriber<T>>();
-                            await handler.HandleAsync(message, stoppingToken);
-                            success = true;
-                        }
-                        catch (Exception ex)
-                        {
-                            attempt++;
-                            if (attempt >= _options.MaxRetryAttempts)
-                            {
-                                // Gọi hàm OnError nếu có
-                                if (_options.OnError != null)
-                                    await _options.OnError(ex, message);
+                        _logger.LogWarning("Message deserialized to null from topic [{topic}]", _options.Topic);
+                        continue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize message from topic [{topic}]", _options.Topic);
+                    continue;
+                }
 
-                                // Gửi qua DLQ nếu được cấu hình
-                                if (!string.IsNullOrEmpty(_options.DeadLetterTopic))
+                var attempt = 0;
+                var success = false;
+
+                while (attempt < (_options.MaxRetryAttempts ?? 3) && !success)
+                {
+                    attempt++;
+                    try
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var handler = scope.ServiceProvider.GetRequiredService<IKafkaBentanikSubscriber<T>>();
+                        await handler.HandleAsync(message, stoppingToken);
+
+                        consumer.Commit(result); // commit sau khi xử lý OK
+                        success = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Attempt {Attempt} failed for topic {Topic}", attempt, _options.Topic);
+
+                        if (attempt >= (_options.MaxRetryAttempts ?? 3))
+                        {
+                            if (_options.OnError != null)
+                                await _options.OnError(ex, message);
+
+                            if (!string.IsNullOrEmpty(_options.DeadLetterTopic))
+                            {
+                                try
                                 {
                                     var dlqPublisher = new KafkaBentanikPublisher(new ProducerConfig
                                     {
@@ -64,24 +93,32 @@ public class KafkaBentanikSubscriber<T> : BackgroundService
                                     });
                                     await dlqPublisher.PublishAsync(_options.DeadLetterTopic, message);
                                 }
+                                catch (Exception dlqEx)
+                                {
+                                    _logger.LogError(dlqEx, "Failed to send to DLQ [{topic}]", _options.DeadLetterTopic);
+                                }
                             }
-                            else
-                            {
-                                await Task.Delay(_options.RetryDelay, stoppingToken);
-                            }
+                        }
+                        else
+                        {
+                            await Task.Delay(_options.RetryDelay, stoppingToken);
                         }
                     }
                 }
             }
-            catch (OperationCanceledException)
-            {
-                // graceful shutdown
-            }
-            catch (Exception ex)
-            {
-                // Optional logging
-                Console.WriteLine($"[KafkaConsumer] Unexpected error: {ex.Message}");
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Kafka subscriber shutting down for topic [{topic}]", _options.Topic);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error in Kafka subscriber for topic [{topic}]", _options.Topic);
+        }
+        finally
+        {
+            consumer.Unsubscribe();
+            consumer.Close();
         }
     }
 }

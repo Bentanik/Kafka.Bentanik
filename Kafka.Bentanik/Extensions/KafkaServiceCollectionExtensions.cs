@@ -1,7 +1,5 @@
 ﻿using Kafka.Bentanik.Workers;
-
 namespace Kafka.Bentanik.Extensions;
-
 public static class KafkaServiceCollectionExtensions
 {
     public static IServiceCollection AddKafkaBentanikPublisher(this IServiceCollection services, Action<ProducerConfig> configure)
