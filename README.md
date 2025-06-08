@@ -155,21 +155,21 @@ OutboxProcessor will run in background, check for unsent messages, publish them 
 ```csharp
 public class MongoOutboxStore : IOutboxStore
 {
-    private readonly IMongoCollection<OutboxMessage> _collection;
+    private readonly IMongoCollection<OutboxBentanikMessage> _collection;
 
     public MongoOutboxStore(IMongoDatabase db)
     {
-        _collection = db.GetCollection<OutboxMessage>("outbox");
+        _collection = db.GetCollection<OutboxBentanikMessage>("outbox");
     }
 
-    public Task<List<OutboxMessage>> GetUnsentMessagesAsync(int maxCount, CancellationToken ct)
+    public Task<List<OutboxBentanikMessage>> GetUnsentMessagesAsync(int maxCount, CancellationToken ct)
         => _collection.Find(m => !m.Processed && m.Status != "DeadLettered")
                       .Limit(maxCount)
                       .ToListAsync(ct);
 
     public Task MarkAsSentAsync(string id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
-            Builders<OutboxMessage>.Update
+            Builders<OutboxBentanikMessage>.Update
                 .Set(x => x.Processed, true)
                 .Set(x => x.Status, "Success")
                 .Set(x => x.ProcessedAt, DateTime.UtcNow),
@@ -177,12 +177,12 @@ public class MongoOutboxStore : IOutboxStore
 
     public Task IncrementRetryAsync(string id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
-            Builders<OutboxMessage>.Update.Inc(x => x.RetryCount, 1),
+            Builders<OutboxBentanikMessage>.Update.Inc(x => x.RetryCount, 1),
             cancellationToken: ct);
 
     public Task MoveToDeadLetterAsync(string id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
-            Builders<OutboxMessage>.Update
+            Builders<OutboxBentanikMessage>.Update
                 .Set(x => x.Processed, true)
                 .Set(x => x.Status, "DeadLettered")
                 .Set(x => x.ProcessedAt, DateTime.UtcNow),
