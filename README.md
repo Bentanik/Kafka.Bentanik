@@ -113,7 +113,7 @@ Supports custom databases via `IOutboxStore` interface.
 ```csharp
 public class OutboxMessage
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Id { get; set; } = Guid.NewGuid().ToString();
     public string EventType { get; set; } = default!;
     public string Payload { get; set; } = default!;
     public string Topic { get; set; } = default!;
@@ -167,7 +167,7 @@ public class MongoOutboxStore : IOutboxStore
                       .Limit(maxCount)
                       .ToListAsync(ct);
 
-    public Task MarkAsSentAsync(Guid id, CancellationToken ct)
+    public Task MarkAsSentAsync(string id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
             Builders<OutboxMessage>.Update
                 .Set(x => x.Processed, true)
@@ -175,12 +175,12 @@ public class MongoOutboxStore : IOutboxStore
                 .Set(x => x.ProcessedAt, DateTime.UtcNow),
             cancellationToken: ct);
 
-    public Task IncrementRetryAsync(Guid id, CancellationToken ct)
+    public Task IncrementRetryAsync(string id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
             Builders<OutboxMessage>.Update.Inc(x => x.RetryCount, 1),
             cancellationToken: ct);
 
-    public Task MoveToDeadLetterAsync(Guid id, CancellationToken ct)
+    public Task MoveToDeadLetterAsync(string id, CancellationToken ct)
         => _collection.UpdateOneAsync(x => x.Id == id,
             Builders<OutboxMessage>.Update
                 .Set(x => x.Processed, true)
