@@ -11,7 +11,16 @@ public class KafkaBentanikPublisher : IKafkaBentanikPublisher
 
     public async Task PublishAsync<T>(string topic, T message, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(message);
+        string json;
+        if (message is string str)
+        {
+            json = str;
+        }
+        else
+        {
+            json = JsonSerializer.Serialize(message);
+        }
+
         await _producer.ProduceAsync(topic, new Message<string, string>
         {
             Key = Guid.NewGuid().ToString(),
