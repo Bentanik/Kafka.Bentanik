@@ -1,0 +1,89 @@
+## Build Results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+*.log
+
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Mono Auto Generated Files
+mono_crash.*
+
+## Visual Studio
+.vs/
+.vscode/
+Generated\ Files/
+
+## ASP.NET Core
+appsettings.*.json
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+## Entity Framework
+Migrations/
+
+## Rider
+.idea/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+*.nuspec
+project.lock.json
+project.fragment.lock.json
+
+## DotCover
+*.dotCover
+
+## ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## Coverage Results
+TestResults/
+*.coverage
+*.coveragexml
+*.codecoverage
+
+## NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+## StyleCop
+StyleCopReport.xml
+
+## Files built by Visual Studio
+*.dll
+*.exe
+*.pdb
+*.cache
+*.mdb
+
+## Others
+*.dbmdl
+*.bak
+*.sql
+*.mdf
+*.ldf
+*.psess
+*.vsp
+*.vspscc
+*.vssscc
+*.cache
+*.dbmdl
+*.jfm
+.DS_Store
+Thumbs.db
+
+## Docker
+docker-compose.override.yml
